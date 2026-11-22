@@ -1,0 +1,692 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Gridle</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:ital,wght@0,600;1,700;1,800&display=swap">
+<style>
+/* Layout: pit-wall timing screen. Wordmark, a progress strip and one round at a time while playing; a results screen (rank, score, comparison histogram, round cards) once all 5 rounds are done; a countdown to the next daily game at the bottom. Rarer answers score more. */
+:root {
+  --bg: #0c0c10;
+  --surface: #15151c;
+  --surface-2: #1d1d26;
+  --ink: #f2f2ef;
+  --muted: #9b9ba8;
+  --line: #2b2b36;
+  --red: #ff3b30;
+  --on-red: #ffffff;
+  --green: #2ee08a;
+  --on-green: #06210f;
+  --t1: #9b9ba8;
+  --t2: #6ab0ff;
+  --t3: #2ee08a;
+  --t4: #b78cff;
+  --t5: #ffd24a;
+  --dot: rgba(255, 255, 255, .06);
+  --font-display: "Barlow Condensed", "Arial Narrow", Impact, sans-serif;
+  --font-body: "Barlow", system-ui, -apple-system, "Segoe UI", sans-serif;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #f1f1ee; --surface: #ffffff; --surface-2: #e9e9e5; --ink: #15151c; --muted: #62626f;
+    --line: #d4d4cf; --red: #e10600; --on-red: #ffffff; --green: #0b8a4a; --on-green: #ffffff;
+    --t1: #62626f; --t2: #1f6fd1; --t3: #0b8a4a; --t4: #7a3fd1; --t5: #a8740a; --dot: rgba(0, 0, 0, .06);
+    color-scheme: light;
+  }
+}
+:root[data-theme="light"] {
+  --bg: #f1f1ee; --surface: #ffffff; --surface-2: #e9e9e5; --ink: #15151c; --muted: #62626f;
+  --line: #d4d4cf; --red: #e10600; --on-red: #ffffff; --green: #0b8a4a; --on-green: #ffffff;
+  --t1: #62626f; --t2: #1f6fd1; --t3: #0b8a4a; --t4: #7a3fd1; --t5: #a8740a; --dot: rgba(0, 0, 0, .06);
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink);
+  font: 16px/1.5 var(--font-body);
+  padding-block: 24px 56px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap { max-width: 760px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+.top { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.mark { font: italic 800 2.6rem/1 var(--font-display); text-transform: uppercase; letter-spacing: .02em; margin: 0; }
+.mark span { color: var(--red); }
+.tag { color: var(--muted); font-size: .9rem; margin: 6px 0 0; max-width: 38ch; }
+.total { text-align: right; margin: 0; }
+.total b { display: block; font: italic 800 2.2rem/1 var(--font-display); font-variant-numeric: tabular-nums; }
+.total span { font-size: .72rem; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.steps { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 6px; }
+.step { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.step i { height: 5px; border-radius: 2px; background: var(--line); }
+.step span { font: 600 .72rem/1 var(--font-body); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.step.done i { background: var(--tc); }
+.step.done span, .step.cur span { color: var(--ink); }
+.step.cur i { background: var(--red); }
+.btn:focus-visible, .sug button:focus-visible, .chip:focus-visible, summary:focus-visible { outline: 2px solid var(--red); outline-offset: 2px; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 4px; padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+.head { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; flex-wrap: wrap; }
+.head > div { min-width: 0; flex: 1 1 260px; }
+.head > div.lightbox { flex: 0 0 auto; }
+.eyebrow { font: 600 .75rem/1 var(--font-body); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+h2 { font: italic 800 clamp(1.6rem, 5vw, 2.1rem)/1.05 var(--font-display); text-transform: uppercase; margin: 0 0 8px; text-wrap: balance; }
+.prompt { margin: 0; }
+.lights { display: flex; gap: 6px; padding: 8px 10px; background: #050507; border-radius: 6px; }
+.lamp { width: 22px; height: 22px; border-radius: 50%; background: #2a1514; border: 1px solid #3a1d1b; }
+.lamp.on { background: #ff2a1f; border-color: #ff6a60; box-shadow: 0 0 10px 2px rgba(255, 42, 31, .6); }
+.clock { font: italic 800 1.8rem/1 var(--font-display); text-align: right; margin: 6px 0 0; font-variant-numeric: tabular-nums; }
+.clock.low { color: var(--red); }
+.clock small { font: 600 .7rem var(--font-body); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); font-style: normal; margin-left: 4px; }
+.score { font: italic 800 2rem/1 var(--font-display); font-variant-numeric: tabular-nums; }
+.score small { font: 500 .85rem var(--font-body); color: var(--muted); font-style: normal; margin-left: 6px; }
+.intro { margin: 0; color: var(--muted); max-width: 52ch; }
+form { position: relative; display: flex; gap: 8px; }
+input[type="text"] {
+  flex: 1; min-width: 0; font: 500 1rem var(--font-body); color: var(--ink);
+  background: var(--bg); border: 1px solid var(--line); border-radius: 2px; padding: 12px 14px;
+}
+input[type="text"]:focus-visible { outline: 2px solid var(--red); outline-offset: 0; border-color: var(--red); }
+.btn {
+  appearance: none; cursor: pointer; font: 600 .9rem var(--font-body); letter-spacing: .06em; text-transform: uppercase;
+  color: var(--on-red); background: var(--red); border: 1px solid var(--red); border-radius: 2px; padding: 0 18px;
+}
+.btn.big { padding: 14px 28px; align-self: flex-start; font-size: 1rem; }
+.btn.ghost { background: transparent; color: var(--ink); border-color: var(--line); padding: 10px 16px; }
+.btn.ghost:hover { border-color: var(--muted); }
+.sug { position: absolute; left: 0; right: 150px; top: 100%; z-index: 5; margin: 4px 0 0; padding: 0; list-style: none; background: var(--surface-2); border: 1px solid var(--line); border-radius: 2px; }
+.sug[hidden] { display: none; }
+.sug button { width: 100%; text-align: left; font: inherit; color: var(--ink); background: transparent; border: 0; padding: 9px 14px; cursor: pointer; }
+.sug button:hover { background: var(--line); }
+.msg { min-height: 1.5em; margin: 0; color: var(--muted); font-size: .95rem; }
+.msg.bad { color: var(--red); }
+.msg.good { color: var(--green); }
+ol.board { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; border-top: 1px solid var(--line); }
+.row { display: grid; grid-template-columns: 3.2rem minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--line); }
+.pos { font: italic 700 1.05rem/1 var(--font-display); text-align: center; padding: 6px 0; background: var(--surface-2); color: var(--muted); border-radius: 2px; font-variant-numeric: tabular-nums; }
+.name { font: 600 1.05rem/1.2 var(--font-body); min-width: 0; overflow-wrap: anywhere; }
+.name small { display: block; font: 400 .8rem/1.3 var(--font-body); color: var(--muted); margin-top: 2px; }
+.mask { display: block; height: 10px; width: 55%; max-width: 220px; background: var(--surface-2); border-radius: 2px; }
+.pts { font: italic 800 1.35rem/1 var(--font-display); text-align: right; font-variant-numeric: tabular-nums; min-width: 4.4rem; }
+.pts small { display: block; font: 600 .62rem/1.2 var(--font-body); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); font-style: normal; }
+.row.hit .pos { background: var(--green); color: var(--on-green); }
+.row.miss .pos { background: var(--red); color: var(--on-red); }
+.row.miss .pts { color: var(--red); }
+.row.other .name, .row.other .pts { color: var(--muted); }
+.finish { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 12px; background: var(--surface-2); border-radius: 2px; }
+.finish p { margin: 0; flex: 1 1 200px; font-weight: 500; }
+.flag { width: 44px; height: 30px; flex: none; border: 1px solid var(--line);
+  background: conic-gradient(var(--ink) 25%, var(--bg) 0 50%, var(--ink) 0 75%, var(--bg) 0) 0 0 / 14px 14px; }
+.tools { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* Results screen */
+.results { display: flex; flex-direction: column; gap: 24px; }
+.res-head { border: 1px solid var(--line); border-radius: 4px; padding: 28px 20px 24px; display: flex; flex-direction: column; align-items: flex-start; gap: 10px;
+  background: var(--surface) radial-gradient(circle, var(--dot) 1.5px, transparent 1.5px) 0 0 / 16px 16px; }
+.res-title { font: italic 800 clamp(2.6rem, 11vw, 4.4rem)/1 var(--font-display); text-transform: uppercase; margin: 0; color: var(--rc); }
+.res-rank { font: 600 .8rem/1 var(--font-body); letter-spacing: .16em; text-transform: uppercase; color: var(--muted); margin: 0; }
+.res-score { font: italic 800 clamp(4.5rem, 24vw, 8rem)/.9 var(--font-display); color: var(--green); margin: 6px 0; font-variant-numeric: tabular-nums; }
+.streak { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--line); border-radius: 999px; padding: 4px 14px 4px 10px; font-size: .9rem; font-weight: 600; background: var(--surface-2); margin: 0; }
+.mini-flag { width: 16px; height: 12px; border: 1px solid var(--muted);
+  background: conic-gradient(var(--ink) 25%, var(--surface-2) 0 50%, var(--ink) 0 75%, var(--surface-2) 0) 0 0 / 6px 6px; }
+.cmp { display: flex; flex-direction: column; gap: 10px; border-top: 1px solid var(--line); padding-top: 18px; }
+.pct { margin: 0; }
+.pct b { font: 700 2rem/1 var(--font-display); font-variant-numeric: tabular-nums; }
+.pct span { color: var(--muted); font-size: .85rem; margin-left: 6px; }
+.hist { position: relative; height: 140px; display: flex; align-items: flex-end; gap: 2px; border-bottom: 1px solid var(--line); }
+.bar { flex: 1; min-width: 0; border-radius: 1px 1px 0 0; opacity: .7; }
+.bar.b-dts { background: var(--red); }
+.bar.b-wheel { background: var(--t2); }
+.bar.b-good { background: var(--t3); }
+.bar.b-elite { background: var(--t4); }
+.bar.you { opacity: 1; outline: 2px solid var(--ink); outline-offset: 1px; }
+.you-tag { position: absolute; transform: translateX(-50%); font: 700 .72rem/1 var(--font-body); background: var(--ink); color: var(--bg); padding: 3px 6px; border-radius: 2px; }
+.axis { position: relative; height: 1.1rem; font-size: .75rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.axis span { position: absolute; top: 0; transform: translateX(-50%); }
+.axis span:first-child { transform: none; }
+.axis span:last-child { transform: translateX(-100%); }
+.sim { margin: 0; color: var(--muted); font-size: .78rem; }
+.cards { display: flex; flex-direction: column; gap: 8px; }
+details.card { background: var(--surface); border: 1px solid var(--line); border-left: 3px solid var(--tc); border-radius: 4px; }
+details.card summary { display: flex; align-items: center; gap: 12px; padding: 12px 14px; cursor: pointer; list-style: none; }
+details.card summary::-webkit-details-marker { display: none; }
+details.card summary::after { content: ""; width: 8px; height: 8px; border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); transform: rotate(45deg); margin: -4px 4px 0 6px; flex: none; }
+details.card[open] summary::after { transform: rotate(-135deg); margin-top: 4px; }
+.idx { width: 24px; height: 24px; border: 1px solid var(--muted); border-radius: 50%; font-size: .75rem; display: grid; place-items: center; color: var(--muted); flex: none; }
+.dot { width: 10px; height: 10px; border-radius: 50%; background: var(--tc); flex: none; }
+.tname { font-weight: 600; color: var(--tc); min-width: 0; overflow-wrap: anywhere; }
+.cpts { margin-left: auto; font: italic 800 1.5rem/1 var(--font-display); color: var(--tc); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.cpts small { font: 500 .75rem var(--font-body); font-style: normal; margin-left: 3px; color: var(--muted); }
+.cbody { padding: 4px 16px 18px; display: flex; flex-direction: column; gap: 10px; }
+.cbody h3 { font: 700 clamp(1.3rem, 4.5vw, 1.7rem)/1.1 var(--font-display); margin: 4px 0 0; text-wrap: balance; }
+.cbody p { margin: 0; font-size: .9rem; color: var(--muted); }
+.cbody p b { color: var(--ink); font-weight: 600; }
+.vh { font-weight: 600; font-size: .9rem; margin-top: 6px; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { appearance: none; cursor: pointer; font: 600 .82rem var(--font-body); color: var(--tc); background: var(--surface-2); border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; }
+.chip i { font-style: normal; color: var(--muted); margin-left: 4px; font-weight: 500; }
+.chip[aria-pressed="true"] { border-color: var(--tc); box-shadow: 0 0 0 2px var(--surface), 0 0 0 3px var(--tc); }
+.vlist { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 0 20px; }
+.vlist li { display: flex; justify-content: space-between; gap: 8px; padding: 7px 0; border-top: 1px solid var(--line); font-size: .92rem; min-width: 0; }
+.vlist li span { overflow-wrap: anywhere; }
+.vlist li small { color: var(--muted); font-variant-numeric: tabular-nums; flex: none; }
+.vlist li.mine span { font-weight: 700; color: var(--tc); }
+
+/* Countdown to the next game */
+.next { border-top: 1px solid var(--line); padding-top: 22px; display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; }
+.next .eyebrow { margin: 0; }
+.cd { font: italic 800 clamp(2.6rem, 11vw, 3.8rem)/1 var(--font-display); font-variant-numeric: tabular-nums; margin: 0; }
+.next small { color: var(--muted); font-size: .8rem; }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1 class="mark">Grid<span>le</span></h1>
+      <p class="tag">F1 trivia, Pointless style. One answer, 30 seconds. The more obscure your correct answer, the more points you score.</p>
+    </div>
+    <p class="total"><b id="total">0</b><span>total points</span></p>
+  </header>
+  <nav class="steps" id="steps" aria-label="Progress"></nav>
+  <main class="panel" id="panel"></main>
+  <section class="results" id="results" hidden aria-label="Results"></section>
+  <footer class="next">
+    <p class="eyebrow">Next game in</p>
+    <p class="cd" id="cd" role="timer">--:--:--</p>
+    <small>The game resets at 00:00, Argentina time.</small>
+  </footer>
+</div>
+
+<script>
+(function () {
+  var norm = function (s) {
+    return s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
+  };
+  var D = function (name) {
+    var extra = Array.prototype.slice.call(arguments, 1);
+    var n = norm(name), parts = n.split(" ");
+    var keys = [n, parts[parts.length - 1]].concat(extra.map(norm));
+    return { name: name, keys: keys.filter(function (k, i) { return keys.indexOf(k) === i; }) };
+  };
+  var T = function (name) {
+    var extra = Array.prototype.slice.call(arguments, 1);
+    return { name: name, keys: [norm(name)].concat(extra.map(norm)) };
+  };
+
+  var DRIVERS = [
+    D("Michael Schumacher"), D("Lewis Hamilton"), D("Max Verstappen"), D("Sebastian Vettel"), D("Fernando Alonso"),
+    D("Kimi Räikkönen"), D("Jenson Button"), D("Nico Rosberg"), D("Lando Norris"), D("Charles Leclerc"),
+    D("Oscar Piastri"), D("Carlos Sainz"), D("George Russell"), D("Sergio Pérez", "checo"), D("Daniel Ricciardo"),
+    D("Valtteri Bottas"), D("Mark Webber"), D("David Coulthard"), D("Juan Pablo Montoya"), D("Jarno Trulli"),
+    D("Kimi Antonelli", "andrea kimi antonelli"), D("Nico Hülkenberg"), D("Pierre Gasly"), D("Esteban Ocon"),
+    D("Lance Stroll"), D("Alexander Albon"), D("Yuki Tsunoda"), D("Isack Hadjar"), D("Oliver Bearman"),
+    D("Franco Colapinto"), D("Rubens Barrichello"), D("Felipe Massa"), D("Mika Häkkinen"), D("Damon Hill"),
+    D("Jacques Villeneuve"), D("Ayrton Senna"), D("Alain Prost"), D("Niki Lauda"), D("Nelson Piquet"),
+    D("Nigel Mansell"), D("Jackie Stewart"), D("Jim Clark"), D("Juan Manuel Fangio", "el chueco"),
+    D("José Froilán González", "froilan", "pepe gonzalez"), D("Carlos Reutemann", "lole"), D("Emerson Fittipaldi"),
+    D("James Hunt"), D("Jack Brabham"), D("Mario Andretti"), D("Olivier Panis"), D("Giancarlo Fisichella"),
+    D("Robert Kubica"), D("Heikki Kovalainen")
+  ];
+
+  var TEAMS = [
+    T("Ferrari", "scuderia ferrari"), T("Red Bull", "red bull racing", "redbull", "rbr"),
+    T("Mercedes", "mercedes amg", "mercedes benz"), T("McLaren", "mclaren racing"), T("Renault"),
+    T("Brawn GP", "brawn"), T("Williams"), T("Lotus"), T("Alpine"), T("Aston Martin"), T("Haas"), T("Sauber"),
+    T("Toyota"), T("Tyrrell"), T("Benetton"), T("Alfa Romeo"), T("Cadillac"), T("Audi"), T("Racing Bulls"),
+    T("Jordan"), T("Minardi"), T("Toro Rosso"), T("Force India"), T("Brabham"), T("Cooper")
+  ];
+
+  /* answers: [pool name, detail, fame rating 0-100 (my estimate)]. Points = 100 minus fame, so rarer answers score more. */
+  var ROUNDS = [
+    {
+      id: "q-monaco", short: "Monaco", title: "Monaco winners",
+      prompt: "Name a driver who won the Monaco Grand Prix between 2000 and 2026.",
+      pool: DRIVERS,
+      answers: [
+        ["David Coulthard", "2000, 2002", 15], ["Michael Schumacher", "2001", 55], ["Juan Pablo Montoya", "2003", 4],
+        ["Jarno Trulli", "2004", 0], ["Kimi Räikkönen", "2005", 20], ["Fernando Alonso", "2006, 2007", 65],
+        ["Lewis Hamilton", "2008, 2016, 2019", 85], ["Jenson Button", "2009", 10], ["Mark Webber", "2010, 2012", 22],
+        ["Sebastian Vettel", "2011, 2017", 60], ["Nico Rosberg", "2013, 2014, 2015", 40], ["Daniel Ricciardo", "2018", 45],
+        ["Max Verstappen", "2021, 2023", 80], ["Sergio Pérez", "2022", 28], ["Charles Leclerc", "2024", 75],
+        ["Lando Norris", "2025", 70], ["Kimi Antonelli", "2026", 30]
+      ]
+    },
+    {
+      id: "q-champions", short: "Champions", title: "World champions",
+      prompt: "Name a Formula 1 drivers' world champion between 2000 and 2025.",
+      pool: DRIVERS,
+      answers: [
+        ["Michael Schumacher", "2000 to 2004", 80], ["Fernando Alonso", "2005, 2006", 62], ["Kimi Räikkönen", "2007", 20],
+        ["Lewis Hamilton", "2008, 2014, 2015, 2017 to 2020", 90], ["Jenson Button", "2009", 12], ["Sebastian Vettel", "2010 to 2013", 70],
+        ["Nico Rosberg", "2016", 25], ["Max Verstappen", "2021 to 2024", 88], ["Lando Norris", "2025", 60]
+      ]
+    },
+    {
+      id: "q-constructors", short: "Constructors", title: "Constructors' champions",
+      prompt: "Name a team that won the constructors' championship between 2000 and 2025.",
+      pool: TEAMS,
+      answers: [
+        ["Ferrari", "2000 to 2004, 2007, 2008", 85], ["Renault", "2005, 2006", 8], ["Brawn GP", "2009", 3],
+        ["Red Bull", "2010 to 2013, 2022, 2023", 70], ["Mercedes", "2014 to 2021", 80], ["McLaren", "2024, 2025", 40]
+      ]
+    },
+    {
+      id: "q-argentines", short: "Argentines", title: "Argentine winners",
+      prompt: "Name an Argentine driver who has won a Formula 1 World Championship Grand Prix.",
+      pool: DRIVERS,
+      answers: [
+        ["Juan Manuel Fangio", "24 wins", 90], ["José Froilán González", "2 wins", 0], ["Carlos Reutemann", "12 wins", 25]
+      ]
+    },
+    {
+      id: "q-multi", short: "Multi-champions", title: "Four titles or more",
+      prompt: "Name a driver who has won 4 or more Formula 1 world championships.",
+      pool: DRIVERS,
+      answers: [
+        ["Juan Manuel Fangio", "5 titles", 35], ["Alain Prost", "4 titles", 30], ["Michael Schumacher", "7 titles", 85],
+        ["Sebastian Vettel", "4 titles", 60], ["Lewis Hamilton", "7 titles", 90], ["Max Verstappen", "4 titles", 75]
+      ]
+    }
+  ];
+  var LIMIT_MS = 30000;
+  var DAY_MS = 86400000;
+  var ART_OFFSET = 3 * 3600000; /* Argentina is UTC-3 all year */
+  var STORE_KEY = "gridle-v4";
+  var pointsOf = function (a) { return 100 - a[2]; };
+
+  var TIERS = [
+    { id: "warmup", name: "Warm-up Lap", min: 0, v: "--t1", sq: "⬜" },
+    { id: "pit", name: "Pit Stop", min: 30, v: "--t2", sq: "🟦" },
+    { id: "podium", name: "Podium", min: 50, v: "--t3", sq: "🟩" },
+    { id: "fastest", name: "Fastest Lap", min: 70, v: "--t4", sq: "🟪" },
+    { id: "slam", name: "Grand Slam", min: 90, v: "--t5", sq: "🟨" }
+  ];
+  function tierOf(pts) {
+    var t = TIERS[0];
+    TIERS.forEach(function (x) { if (pts >= x.min) t = x; });
+    return t;
+  }
+  function rankFor(total) {
+    if (total >= 330) return { v: "--t4", name: "Elite Wheel Knowledge" };
+    if (total >= 230) return { v: "--t3", name: "Good Wheel Knowledge" };
+    if (total >= 130) return { v: "--t2", name: "Wheel Knowledge" };
+    return { v: "--red", name: "DTS Wheel Knowledge" };
+  }
+
+  /* Simulated comparison: a crowd picks each answer in proportion to its fame (plus a floor), and 12% miss or run out of time. */
+  function buildDist() {
+    var dist = [1], MISS = 0.12;
+    ROUNDS.forEach(function (r) {
+      var ws = r.answers.map(function (a) { return a[2] + 8; });
+      var sum = ws.reduce(function (x, y) { return x + y; }, 0);
+      var pm = {}; pm[0] = MISS;
+      r.answers.forEach(function (a, i) { var p = pointsOf(a); pm[p] = (pm[p] || 0) + (1 - MISS) * ws[i] / sum; });
+      var next = []; for (var k = 0; k < dist.length + 101; k++) next.push(0);
+      for (var i = 0; i < dist.length; i++) {
+        if (!dist[i]) continue;
+        for (var p in pm) next[i + Number(p)] += dist[i] * pm[p];
+      }
+      dist = next;
+    });
+    return dist;
+  }
+  var DIST = buildDist();
+
+  function lev(a, b) {
+    var m = a.length, n = b.length, prev = [], cur = [], i, j;
+    for (j = 0; j <= n; j++) prev[j] = j;
+    for (i = 1; i <= m; i++) {
+      cur = [i];
+      for (j = 1; j <= n; j++) {
+        cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+      }
+      prev = cur;
+    }
+    return prev[n];
+  }
+  function find(input, pool) {
+    var n = norm(input);
+    if (n.length < 2) return null;
+    var exact = pool.filter(function (e) { return e.keys.indexOf(n) !== -1; });
+    if (exact.length === 1) return exact[0];
+    if (exact.length > 1) return "ambiguous";
+    if (n.length >= 5) {
+      var fuzzy = pool.filter(function (e) {
+        return e.keys.some(function (k) { return k.length >= 5 && lev(k, n) <= (k.length >= 9 ? 2 : 1); });
+      });
+      if (fuzzy.length === 1) return fuzzy[0];
+      if (fuzzy.length > 1) return "ambiguous";
+    }
+    return null;
+  }
+  function copyTo(btn, text) {
+    var fallback = function () {
+      var ta = document.createElement("textarea"); ta.value = text; document.body.appendChild(ta); ta.select();
+      try { document.execCommand("copy"); btn.textContent = "Copied"; } catch (e) { btn.textContent = "Select and copy"; }
+      document.body.removeChild(ta);
+    };
+    try {
+      navigator.clipboard.writeText(text).then(function () { btn.textContent = "Copied"; }, fallback);
+    } catch (e) { fallback(); }
+  }
+
+  /* Day boundaries follow Argentina time (UTC-3). */
+  function artDay(ms) { return new Date(ms - ART_OFFSET).toISOString().slice(0, 10); }
+  function msToNextDay() {
+    var art = Date.now() - ART_OFFSET;
+    return (Math.floor(art / DAY_MS) + 1) * DAY_MS - art;
+  }
+
+  var store = {};
+  try { store = JSON.parse(localStorage.getItem(STORE_KEY) || "{}") || {}; } catch (e) { store = {}; }
+  function save() { try { localStorage.setItem(STORE_KEY, JSON.stringify(store)); } catch (e) {} }
+  /* A new day clears the rounds and keeps the streak. Returns true when it reset. */
+  function ensureDay() {
+    var today = artDay(Date.now());
+    if (store._day === today) return false;
+    var keep = store._meta; store = {}; if (keep) store._meta = keep;
+    store._day = today; save();
+    return true;
+  }
+  function st(id) {
+    if (!store[id]) store[id] = { g: null, t: 0 };
+    return store[id];
+  }
+  function isOver(r) { return !!st(r.id).g; }
+  function isRunning(r) { var s = st(r.id); return !s.g && s.t > 0; }
+  function score(r) { var s = st(r.id); return s.g ? s.g.s : 0; }
+  function allOver() { return ROUNDS.every(isOver); }
+  /* A round left running past 30 seconds (closed tab, reload) counts as timed out. */
+  function checkExpiry(r) {
+    var s = st(r.id);
+    if (!s.g && s.t > 0 && Date.now() - s.t >= LIMIT_MS) {
+      s.g = { n: "No answer", s: 0, ok: false, to: true };
+      save();
+      return true;
+    }
+    return false;
+  }
+  function updateStreak() {
+    var meta = store._meta || { n: 0, last: "" }, today = artDay(Date.now());
+    if (meta.last === today) return meta.n;
+    var yest = artDay(Date.now() - DAY_MS);
+    meta.n = meta.last === yest ? meta.n + 1 : 1;
+    meta.last = today; store._meta = meta; save();
+    return meta.n;
+  }
+
+  var view = 0, atResults = false;
+  var current = ROUNDS[0];
+  var message = { text: "", cls: "" };
+  var timerId = null;
+
+  var stepsEl = document.getElementById("steps");
+  var panel = document.getElementById("panel");
+  var totalEl = document.getElementById("total");
+  var resultsEl = document.getElementById("results");
+  var cdEl = document.getElementById("cd");
+
+  /* Rounds play in order: land on the first unfinished one, or on the results if all are done. */
+  function syncView() {
+    ROUNDS.forEach(checkExpiry);
+    var f = -1;
+    for (var i = 0; i < ROUNDS.length; i++) { if (!isOver(ROUNDS[i])) { f = i; break; } }
+    if (f === -1) { atResults = true; view = ROUNDS.length - 1; }
+    else { atResults = false; view = f; }
+  }
+
+  function render(focusInput) {
+    var total = 0;
+    ROUNDS.forEach(function (r) { checkExpiry(r); if (isOver(r)) total += score(r); });
+    totalEl.textContent = total;
+    current = ROUNDS[view];
+    var showRes = atResults && allOver();
+    stepsEl.hidden = showRes; panel.hidden = showRes; resultsEl.hidden = !showRes;
+    if (showRes) { stopTimer(); renderResults(total); return; }
+    stepsEl.innerHTML = "";
+    ROUNDS.forEach(function (r, i) {
+      var d = document.createElement("div"), over = isOver(r);
+      d.className = "step" + (over ? " done" : (i === view ? " cur" : ""));
+      if (over) d.style.setProperty("--tc", st(r.id).g.ok ? "var(" + tierOf(score(r)).v + ")" : "var(--red)");
+      d.innerHTML = "<i></i><span></span>";
+      d.querySelector("span").textContent = over ? "R" + (i + 1) + " · " + score(r) : "R" + (i + 1);
+      stepsEl.appendChild(d);
+    });
+    renderPanel(focusInput);
+  }
+
+  function ptsHtml(sc, g) {
+    var label, color = "";
+    if (g === "wrong") label = "wrong";
+    else { var t = tierOf(sc); label = t.name; color = ' style="color: var(' + t.v + ')"'; }
+    return sc + "<small" + color + ">" + label + "</small>";
+  }
+
+  function renderResults(total) {
+    var streak = updateStreak();
+    var rk = rankFor(total), lower = 0, t;
+    for (t = 0; t < total && t < DIST.length; t++) lower += DIST[t];
+    var pct = (lower * 100).toFixed(1);
+    var bins = [], i;
+    for (i = 0; i < 50; i++) bins.push(0);
+    DIST.forEach(function (m, x) { bins[Math.min(49, Math.floor(x / 10))] += m; });
+    var maxBin = Math.max.apply(null, bins), youBin = Math.min(49, Math.floor(total / 10));
+    var bars = "", youH = 0;
+    bins.forEach(function (m, idx) {
+      var h = Math.max(m > 0.0004 ? 2 : 0, Math.round(m / maxBin * 100)), c = idx * 10 + 5;
+      var band = c < 130 ? "b-dts" : (c < 230 ? "b-wheel" : (c < 330 ? "b-good" : "b-elite"));
+      if (idx === youBin) youH = h;
+      bars += '<div class="bar ' + band + (idx === youBin ? " you" : "") + '" style="height:' + h + 'px"></div>';
+    });
+    var axis = "";
+    [0, 100, 200, 300, 400, 500].forEach(function (v) { axis += '<span style="left:' + (v / 5) + '%">' + v + "</span>"; });
+    var youLeft = (youBin + 0.5) / 50 * 100;
+
+    var cards = "", squares = "";
+    ROUNDS.forEach(function (r, idx) {
+      var g = st(r.id).g, tier = g.ok ? tierOf(g.s) : null;
+      var tc = tier ? "var(" + tier.v + ")" : "var(--red)";
+      var tname = tier ? tier.name : (g.to ? "Time out" : "Missed");
+      squares += tier ? tier.sq : "⬛";
+      var counts = {}, lis = "";
+      var sorted = r.answers.slice().sort(function (a, b) { return pointsOf(a) - pointsOf(b); });
+      sorted.forEach(function (a) {
+        var tr = tierOf(pointsOf(a)); counts[tr.id] = (counts[tr.id] || 0) + 1;
+        lis += '<li data-tier="' + tr.id + '" style="--tc: var(' + tr.v + ')"' + (g.ok && g.n === a[0] ? ' class="mine"' : "") + "><span>" + a[0] + "</span><small>" + pointsOf(a) + "</small></li>";
+      });
+      var chips = "";
+      TIERS.forEach(function (tr) {
+        if (counts[tr.id]) chips += '<button type="button" class="chip" aria-pressed="false" data-tier="' + tr.id + '" style="--tc: var(' + tr.v + ')">' + tr.name + "<i>" + counts[tr.id] + "</i></button>";
+      });
+      var mine = g.ok ? r.answers.filter(function (a) { return a[0] === g.n; })[0] : null;
+      var yours = mine ? "<p>Your answer: <b>" + g.n + "</b> (" + mine[1] + ")</p>" :
+        "<p>Your answer: <b>" + (g.to ? "No answer, time ran out" : g.n + ", not a valid answer") + "</b></p>";
+      cards += '<details class="card" style="--tc: ' + tc + '"' + (idx === 0 ? " open" : "") + '><summary><span class="idx">' + (idx + 1) + '</span><span class="dot"></span><span class="tname">' + tname +
+        '</span><span class="cpts">' + g.s + "<small>pts</small></span></summary>" +
+        '<div class="cbody"><h3>' + r.prompt + "</h3>" + yours + '<p class="vh">Valid answers (' + r.answers.length + ')</p><div class="chips">' + chips + '</div><ul class="vlist">' + lis + "</ul></div></details>";
+    });
+
+    resultsEl.innerHTML =
+      '<div class="res-head" style="--rc: var(' + rk.v + ')"><h2 class="res-title">Formula 1</h2><p class="res-rank"></p><p class="res-score"></p>' +
+      '<p class="streak"><span class="mini-flag"></span><span id="streaktxt"></span></p></div>' +
+      '<div class="cmp"><p class="eyebrow">Score comparison</p><p class="pct"><b></b><span>of simulated comparison scores are lower</span></p>' +
+      '<div class="hist" aria-hidden="true">' + bars + '<span class="you-tag" style="left:' + youLeft + "%;bottom:" + (youH + 8) + 'px">You</span></div>' +
+      '<div class="axis" aria-hidden="true">' + axis + '</div><p class="sim">The comparison is a simulation of players who tend to pick well-known answers. It is not data from real players.</p></div>' +
+      '<div class="cards">' + cards + "</div>" +
+      '<div class="tools"><button class="btn ghost" type="button" id="resshare">Copy result</button></div>';
+    resultsEl.querySelector(".res-rank").textContent = rk.name;
+    resultsEl.querySelector(".res-score").textContent = total;
+    resultsEl.querySelector(".pct b").textContent = pct + "%";
+    document.getElementById("streaktxt").textContent = streak + "-day streak";
+    document.getElementById("resshare").addEventListener("click", function () {
+      copyTo(this, "Gridle · Formula 1\n" + total + " points · " + rk.name + "\n" + squares + "\n" + pct + "% of simulated scores are lower\n" + location.href);
+    });
+  }
+  resultsEl.addEventListener("click", function (e) {
+    var chip = e.target.closest(".chip");
+    if (!chip) return;
+    var body = chip.closest(".cbody"), was = chip.getAttribute("aria-pressed") === "true";
+    body.querySelectorAll(".chip").forEach(function (c) { c.setAttribute("aria-pressed", "false"); });
+    if (!was) chip.setAttribute("aria-pressed", "true");
+    var tier = was ? null : chip.dataset.tier;
+    body.querySelectorAll(".vlist li").forEach(function (li) { li.hidden = tier !== null && li.dataset.tier !== tier; });
+  });
+
+  function stopTimer() { if (timerId) { clearInterval(timerId); timerId = null; } }
+
+  function tick() {
+    var r = current, s = st(r.id);
+    if (!isRunning(r)) { stopTimer(); return; }
+    var left = Math.max(0, LIMIT_MS - (Date.now() - s.t));
+    if (left <= 0) {
+      stopTimer(); checkExpiry(r);
+      message = { text: "Time is up. That scores 0 points.", cls: "bad" };
+      render(false);
+      return;
+    }
+    var secs = Math.ceil(left / 1000);
+    var lamps = panel.querySelectorAll(".lamp");
+    var lit = Math.ceil(left / 6000);
+    for (var i = 0; i < lamps.length; i++) lamps[i].className = "lamp" + (i < lit ? " on" : "");
+    var clock = document.getElementById("clock");
+    if (clock) { clock.firstChild.nodeValue = String(secs); clock.className = "clock" + (secs <= 10 ? " low" : ""); }
+  }
+
+  function renderPanel(focusInput) {
+    stopTimer();
+    var r = current, s = st(r.id), over = isOver(r), running = isRunning(r);
+    var lampHtml = "";
+    for (var i = 0; i < 5; i++) lampHtml += '<span class="lamp' + (running ? " on" : "") + '"></span>';
+    var clockText = over ? "0" : "30";
+    var html =
+      '<div class="head"><div><p class="eyebrow">Round ' + (view + 1) + " of " + ROUNDS.length + '</p><h2></h2><p class="prompt"></p></div>' +
+      '<div class="lightbox"><div class="lights" aria-hidden="true">' + lampHtml + '</div>' +
+      '<p class="clock" id="clock">' + clockText + '<small>sec</small></p></div></div>';
+    if (!running && !over) {
+      html += '<p class="intro">You get one answer and 30 seconds. The rarer your correct answer, the more points it scores, up to 100. A wrong answer or no answer scores 0. The clock starts when you press Start.</p>' +
+        '<button class="btn big" type="button" id="start">Start round</button>';
+    } else {
+      html += '<div class="score">' + (over ? score(r) : "?") + '<small>' + (over ? "points this round, higher is better" : "points if you are right") + '</small></div>';
+      if (running) {
+        html += '<form id="form" autocomplete="off"><input type="text" id="guess" placeholder="' + (r.pool === TEAMS ? "Type a team" : "Type a driver") + '" aria-label="Your answer">' +
+          '<button class="btn" type="submit">Lock in</button><ul class="sug" id="sug" hidden></ul></form>';
+      }
+      html += '<p class="msg ' + message.cls + '" id="msg" role="status" aria-live="polite"></p>';
+      var rows = "";
+      if (running) {
+        rows = '<li class="row"><span class="pos">1</span><span class="name"><span class="mask"></span></span><span class="pts"></span></li>';
+      } else {
+        var g = s.g, picked = g.ok ? g.n : null;
+        var sorted = r.answers.slice().sort(function (a, b) { return pointsOf(b) - pointsOf(a); });
+        sorted.forEach(function (a, idx) {
+          var isPick = a[0] === picked;
+          rows += '<li class="row ' + (isPick ? "hit" : "other") + '"><span class="pos">' + (idx + 1) + '</span><span class="name">' + a[0] +
+            "<small>" + a[1] + (isPick ? " · your answer" : "") + '</small></span><span class="pts">' + ptsHtml(pointsOf(a)) + "</span></li>";
+        });
+        if (!g.ok) {
+          rows += '<li class="row miss"><span class="pos">×</span><span class="name">' + g.n +
+            "<small>" + (g.to ? "Time ran out" : "Your answer, not a valid one") + '</small></span><span class="pts">' + ptsHtml(0, "wrong") + "</span></li>";
+        }
+      }
+      html += '<ol class="board">' + rows + '</ol>';
+      if (over) {
+        var best = Math.max.apply(null, r.answers.map(pointsOf));
+        var sc = score(r);
+        var finish = sc === 100 ? "Grand Slam! You found the most obscure answer, worth the maximum 100." :
+          (!s.g.ok ? "No points this round. The best possible answer was worth " + best + "." : "You scored " + sc + ". The best possible answer was worth " + best + ".");
+        html += '<div class="finish"><span class="flag"></span><p>' + finish + '</p></div>' +
+          '<button class="btn big" type="button" id="next">' + (view < ROUNDS.length - 1 ? "Next round" : "See results") + '</button>';
+      }
+    }
+    panel.innerHTML = html;
+    panel.querySelector("h2").textContent = r.title;
+    panel.querySelector(".prompt").textContent = (running || over) ? r.prompt : "";
+    var msgEl = document.getElementById("msg"); if (msgEl) msgEl.textContent = message.text;
+    wire();
+    if (running) { timerId = setInterval(tick, 250); tick(); if (focusInput) document.getElementById("guess").focus(); }
+  }
+
+  function startRound() {
+    var s = st(current.id);
+    s.t = Date.now(); s.g = null; message = { text: "", cls: "" };
+    save(); render(true);
+  }
+
+  function lockIn(text) {
+    var r = current, s = st(r.id);
+    if (!isRunning(r)) return;
+    var hit = find(text, r.pool);
+    if (hit === null) { message = { text: "I don't recognise that name. Try first and last name. The clock is still running.", cls: "" }; renderPanelKeepTimer(); return; }
+    if (hit === "ambiguous") { message = { text: "More than one match. Type the full name.", cls: "" }; renderPanelKeepTimer(); return; }
+    var ans = r.answers.filter(function (a) { return a[0] === hit.name; })[0];
+    if (ans) {
+      var pts = pointsOf(ans);
+      s.g = { n: hit.name, s: pts, ok: true };
+      message = { text: hit.name + " is correct. " + pts + " points (" + tierOf(pts).name + ").", cls: "good" };
+    } else {
+      s.g = { n: hit.name, s: 0, ok: false };
+      message = { text: hit.name + " does not fit the question. 0 points.", cls: "bad" };
+    }
+    save(); render(false);
+  }
+  /* Updates only the message so the input keeps its text and the clock keeps running. */
+  function renderPanelKeepTimer() {
+    var msgEl = document.getElementById("msg");
+    if (msgEl) { msgEl.textContent = message.text; msgEl.className = "msg " + message.cls; }
+  }
+
+  function wire() {
+    var start = document.getElementById("start");
+    if (start) start.addEventListener("click", startRound);
+    var next = document.getElementById("next");
+    if (next) next.addEventListener("click", function () {
+      message = { text: "", cls: "" };
+      if (view < ROUNDS.length - 1) view++; else atResults = true;
+      render(false);
+      window.scrollTo(0, 0);
+    });
+    var form = document.getElementById("form"), input = document.getElementById("guess"), sug = document.getElementById("sug");
+    if (form) {
+      form.addEventListener("submit", function (e) {
+        e.preventDefault();
+        var v = input.value.trim();
+        if (v) lockIn(v);
+      });
+      input.addEventListener("input", function () {
+        var n = norm(input.value);
+        sug.innerHTML = "";
+        if (n.length < 2) { sug.hidden = true; return; }
+        var list = current.pool.filter(function (e) {
+          return e.keys.some(function (k) { return k.indexOf(n) === 0 || (" " + k).indexOf(" " + n) !== -1; });
+        }).slice(0, 5);
+        list.forEach(function (e) {
+          var li = document.createElement("li"), b = document.createElement("button");
+          b.type = "button"; b.textContent = e.name;
+          b.addEventListener("click", function () { sug.hidden = true; input.value = e.name; input.focus(); });
+          li.appendChild(b); sug.appendChild(li);
+        });
+        sug.hidden = list.length === 0;
+      });
+      input.addEventListener("keydown", function (e) { if (e.key === "Escape") sug.hidden = true; });
+    }
+  }
+  document.addEventListener("click", function (e) {
+    var sug = document.getElementById("sug"), form = document.getElementById("form");
+    if (sug && form && !form.contains(e.target)) sug.hidden = true;
+  });
+
+  function pad(n) { return (n < 10 ? "0" : "") + n; }
+  function tickCountdown() {
+    if (ensureDay()) { message = { text: "", cls: "" }; syncView(); render(false); }
+    var s = Math.max(0, Math.floor(msToNextDay() / 1000));
+    cdEl.textContent = pad(Math.floor(s / 3600)) + ":" + pad(Math.floor(s % 3600 / 60)) + ":" + pad(s % 60);
+  }
+
+  ensureDay();
+  syncView();
+  render(false);
+  tickCountdown();
+  setInterval(tickCountdown, 1000);
+})();
+</script>
+
+</body></html>
